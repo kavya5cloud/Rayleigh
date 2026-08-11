@@ -1,4 +1,43 @@
-<img width="690" height="282" alt="Screenshot 2026-08-12 at 12 06 02 AM" src="https://github.com/user-attachments/assets/42b5b433-531a-48c2-a1bf-83f309b08762" />
+# Rayleigh
 
-#Rayleigh
-Dimensional analysis for unannotated scientific Python.
+Rayleigh is a dependency-free Python CLI that infers SI base dimensions from ordinary scientific Python and detects dimensional inconsistencies.
+
+The V1 pipeline is:
+
+`Python source → AST → linear dimensional constraints → solver → diagnostics`
+
+## Status
+
+This is an experimental V1. It intentionally reports **unknown** when the available constraints are insufficient rather than inventing a unit assignment.
+
+## Try it
+
+```bash
+python -m rayleigh.cli check tests/fixtures/mars_orbiter.py --constraints
+python -m rayleigh.cli check tests/fixtures/ambiguous.py
+```
+
+For local development:
+
+```bash
+pip install -e .
+rayleigh check tests/fixtures/mars_orbiter.py
+```
+
+## Dimension model
+
+Every concrete dimension is a 7-vector of SI base-dimension exponents:
+
+`(M, L, T, I, Θ, N, J)`
+
+The implementation uses affine symbolic expressions over unknown variable dimensions. AST operations translate directly to linear constraints:
+
+- `a + b`, `a - b`, and comparisons require equal dimensions.
+- `a * b` adds exponent vectors.
+- `a / b` subtracts exponent vectors.
+- `a ** n` scales exponents by `n` when `n` is numeric.
+- `sin`, `cos`, `exp`, and `log` require dimensionless arguments.
+
+## V1 scope
+
+Single-file analysis only. Cross-module inference, runtime tracing, unit-aware libraries, and deep control/data-flow analysis are deliberately out of scope for the first version.
