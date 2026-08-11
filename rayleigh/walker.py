@@ -140,7 +140,15 @@ class ConstraintWalker(ast.NodeVisitor):
         right = self._expr(node.right)
         line = getattr(node, "lineno", 0)
         if isinstance(node.op, (ast.Add, ast.Sub)):
-            self._add_equality(left, right, line, "addition/subtraction")
+            self._add_equality(
+                left,
+                right,
+                line,
+                "addition/subtraction",
+                chain=(
+                    "both operands must have equal dimensions",
+                ),
+            )
             return left
         if isinstance(node.op, ast.Mult):
             return left + right
@@ -196,7 +204,10 @@ class ConstraintWalker(ast.NodeVisitor):
                         line=getattr(node, "lineno", 0),
                         kind=ConstraintKind.CONSTANT,
                         message=f"recognized constant {fingerprint.name}",
-                        chain=(f"{node.value} ≈ {fingerprint.name}",),
+                        chain=(
+                            f"{node.value} ≈ {fingerprint.name}",
+                            f"{fingerprint.name} → {fingerprint.dimension.format()}",
+                        ),
                     )
                 )
                 return DimensionExpr.unknown(f"const:{node.value}")
@@ -217,10 +228,18 @@ class ConstraintWalker(ast.NodeVisitor):
         line: int,
         message: str,
         kind: ConstraintKind = ConstraintKind.EQUALITY,
+        chain: tuple[str, ...] | None = None,
     ) -> None:
         self.constraints.append(
-            Constraint(left=left, right=right, line=line, kind=kind, message=message, chain=(message,))
+            Constraint(
+                left=left,
+                right=right,
+                line=line,
+                kind=kind,
+                message=message,
+                chain=chain or (message,),
         )
+    )
 
     @staticmethod
     def _numeric_value(node: ast.AST) -> Fraction | None:
