@@ -1,6 +1,8 @@
+<img width="847" height="278" alt="Screenshot 2026-08-12 at 12 08 33 AM" src="https://github.com/user-attachments/assets/b1542753-953b-425a-a4bf-f36ee357a2c3" />
+
 # Rayleigh
 
-Rayleigh is a dependency-free Python CLI that infers SI base dimensions from ordinary scientific Python and detects dimensional inconsistencies.
+Rayleigh is a dependency free Python CLI that infers SI base dimensions from ordinary scientific Python and detects dimensional inconsistencies.
 
 The V1 pipeline is:
 
