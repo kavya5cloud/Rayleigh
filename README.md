@@ -1,3 +1,5 @@
+<img width="916" height="299" alt="Screenshot 2026-08-12 at 10 23 31 AM" src="https://github.com/user-attachments/assets/d551effd-d2ee-47ce-9b87-6996d1873c11" />
+
 # Rayleigh
 
 ### Dimensional Inference for Unannotated Scientific Python
