@@ -1,197 +1,426 @@
-<div align="center">
-
 # Rayleigh
 
-**Finds unit bugs in scientific Python. No annotations required.**
+### Dimensional Inference for Unannotated Scientific Python
 
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![License: MIT](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Status: research](https://img.shields.io/badge/status-research-orange.svg)](docs/rayleigh-whitepaper.md)
-
-[Whitepaper](docs/rayleigh-whitepaper.md) · [How it works](#how-it-works) · [Limitations](#what-rayleigh-cannot-do)
-
-</div>
-
----
+Rayleigh is a static-analysis engine that infers physical dimensions from ordinary scientific Python code and detects dimensional inconsistencies **without requiring unit annotations**.
 
 ```python
-speed = 10.0
+distance = 100
+time = 5
+speed = distance / time
+
 acceleration = speed + 9.81
 ```
 
-Python runs this happily. It is physically meaningless.
+Rayleigh can reason that:
 
-```console
-$ rayleigh sim.py
-
-sim.py:2  dimensional inconsistency in addition
-    acceleration = speed + 9.81
-                   ^^^^^   ^^^^
-    speed   inferred as  L T⁻¹    (from variable name)
-    9.81    inferred as  L T⁻²    (matches standard gravity)
-    addition requires operands to share a dimension
-
-2 variables resolved, 0 unknown  (coverage 100%)
+```text
+speed      → L T⁻¹
+9.81       → L T⁻²
 ```
 
-Rayleigh read that file. Nobody annotated anything.
+and report:
+
+```text
+✗ DIMENSIONAL CONTRADICTION
+
+Line 5: addition/subtraction requires matching dimensions
+
+    acceleration = speed + 9.81
+
+Left:  L T^-1
+Right: L T^-2
+```
 
 ---
 
-## The problem
+## Why Rayleigh?
 
-Scientific code carries physical meaning that the interpreter cannot see. A velocity
-and an acceleration are both `float`. Adding them is valid Python, passes type
-checking, and is wrong.
+Python can tell you whether an expression is syntactically valid.
 
-The existing answer is to annotate every quantity with its units using `pint`,
-`astropy.units`, or `unyt`. These libraries are excellent and you should use them in
-new code. But they require the author to declare units at every origin point — which
-is why they are almost never retrofitted onto the codebases that need them most: the
-large, old, inherited ones written by someone who left in 2019.
+It cannot tell you whether that expression is **physically meaningful**.
 
-Rayleigh takes the opposite approach. **It infers dimensions instead of asking for
-them.**
+Scientific programs often encode units implicitly through variable names, constants, and mathematical relationships:
+
+```python
+velocity = distance / time
+force = mass * acceleration
+```
+
+This creates a class of bugs where the code executes perfectly but the underlying physics is wrong.
+
+Rayleigh attempts to make those hidden physical constraints **machine-readable and statically checkable**.
+
+---
 
 ## How it works
 
-Units are treated as a linear algebra problem.
+Rayleigh represents every physical quantity using the seven SI base dimensions:
 
-Every variable is assigned a vector of seven SI base-dimension exponents
-(mass, length, time, current, temperature, amount, luminosity). Velocity is
-`(0, 1, -1, 0, 0, 0, 0)`. Force is `(1, 1, -2, 0, 0, 0, 0)`.
-
-Then the source is walked, and **every arithmetic operation becomes a constraint**:
-
-| In your code | What it proves |
-|---|---|
-| `a + b` | `a` and `b` have the same dimension |
-| `a * b` | exponents add |
-| `a / b` | exponents subtract |
-| `a ** 2` | exponents scale |
-| `sin(x)`, `log(x)` | `x` must be dimensionless |
-
-Some numbers identify themselves. `9.81` is standard gravity. `6.674e-11` is the
-gravitational constant. `299792458` is the speed of light. These act as **anchors**,
-pinning known dimensions into the constraint graph so the rest can propagate outward.
-
-What remains is a linear system, solved exactly over the rationals — not floats,
-because real physics produces fractional exponents and floating-point error becomes
-a false verdict. Each variable comes back as one of three things:
-
-- **determined** — its dimension is now known
-- **contradictory** — the code is provably inconsistent, and you have a bug
-- **unknown** — not enough information
-
-## Rayleigh says "unknown"
-
-This is the design decision that matters most.
-
-When the constraint system does not determine a variable, Rayleigh reports `unknown`
-and stops. It does not guess from context and dress the guess in hedged language.
-
-A static analysis tool lives or dies on its false-positive rate. One that invents a
-plausible dimension will eventually contradict someone who knows their own code, and
-will be uninstalled that afternoon.
-
-Findings are tiered by the strength of the evidence behind them:
-
-- **High confidence** — follows from matched physical constants and structural
-  operations alone
-- **Suggested** — depends on a variable-name heuristic, so it is phrased as a
-  question
-- **Unknown** — reported as coverage information, never as a finding
-
-Coverage is always printed. A run resolving 15% of a file is a much weaker assurance
-than one resolving 85%, and you are entitled to know which one you got.
-
-## Install
-
-```bash
-pip install rayleigh
+```text
+[M, L, T, I, Θ, N, J]
 ```
 
-Python 3.10+. Core has no dependencies beyond the standard library.
+corresponding to:
 
-## Usage
-
-```bash
-# analyse a file
-rayleigh sim.py
-
-# show every inferred dimension, not just the problems
-rayleigh --show-all sim.py
-
-# structural inference only — disable name heuristics
-rayleigh --no-priors sim.py
-
-# machine-readable, for CI
-rayleigh --json sim.py
+```text
+Mass
+Length
+Time
+Electric current
+Temperature
+Amount of substance
+Luminous intensity
 ```
 
-Exit code is non-zero when high-confidence findings are present, so it drops into CI
-without a wrapper.
+It then walks the Python AST and converts mathematical operations into dimensional constraints.
 
-## What Rayleigh cannot do
+### Constraint algebra
 
-Stated plainly, because a tool that oversells itself is worse than no tool.
+| Operation | Dimensional rule                |
+| --------- | ------------------------------- |
+| `a + b`   | `dim(a) = dim(b)`               |
+| `a - b`   | `dim(a) = dim(b)`               |
+| `a * b`   | exponents are added             |
+| `a / b`   | exponents are subtracted        |
+| `a ** n`  | exponents are multiplied by `n` |
+| `sin(x)`  | `x` must be dimensionless       |
+| `cos(x)`  | `x` must be dimensionless       |
+| `exp(x)`  | `x` must be dimensionless       |
+| `log(x)`  | `x` must be dimensionless       |
 
-**It checks dimensions, not units.** It cannot tell metres from feet, or joules from
-electronvolts. The Mars Climate Orbiter failure — pound-force seconds against
-newton-seconds — was a unit error inside a consistent dimension, and Rayleigh would
-**not** have caught it. Unit-level inference requires scale factors alongside
-exponents and is the top item in [future work](docs/rayleigh-whitepaper.md#13-future-work).
+These constraints are then solved as linear systems over the seven SI dimensions.
 
-**Single-file only.** Cross-module inference and imported function signatures are not
-yet handled.
+---
 
-**Containers are opaque.** A NumPy state vector mixing position and velocity
-components cannot currently be represented.
+## Inference without annotations
 
-**No benchmarks yet.** Precision and recall are unmeasured. The
-[evaluation plan](docs/rayleigh-whitepaper.md#11-evaluation-plan) describes what is
-required before any effectiveness claim can be made.
+Rayleigh does not require code like:
+
+```python
+distance = 100 * meters
+```
+
+Instead, it can use multiple sources of evidence.
+
+### Variable-name priors
+
+```text
+distance     → L
+mass         → M
+velocity     → L T⁻¹
+acceleration → L T⁻²
+time         → T
+```
+
+These are treated as **priors**, not absolute truth.
+
+### Physical constants
+
+Rayleigh can recognize known numerical fingerprints such as:
+
+```text
+9.80665       → standard gravity
+299792458     → speed of light
+6.67430e-11   → gravitational constant
+```
+
+Constants are matched with numerical tolerance and assigned their corresponding dimensional fingerprints.
+
+### Mathematical relationships
+
+Even without useful names, relationships can constrain unknowns:
+
+```python
+speed = distance / time
+```
+
+becomes:
+
+```text
+dim(speed) = dim(distance) - dim(time)
+```
+
+---
+
+## Unknown means unknown
+
+Rayleigh deliberately avoids pretending to know something it cannot infer.
+
+If the available information is insufficient:
+
+```text
+? UNKNOWN
+```
+
+is reported instead of inventing a dimension.
+
+This distinction is fundamental:
+
+```text
+✓ CONSISTENT
+✗ CONTRADICTION
+? UNKNOWN
+```
+
+---
 
 ## Architecture
 
-```
-Python source → AST → constraints → seeding → exact solve → diagnosis
+```text
+                    Python Source
+                         │
+                         ▼
+                     AST Parser
+                         │
+                         ▼
+                 Constraint Walker
+                         │
+              ┌──────────┼──────────┐
+              ▼          ▼          ▼
+          Name Priors  Constants   Algebra
+              │          │          │
+              └──────────┼──────────┘
+                         ▼
+                  Linear Constraint
+                       Solver
+                         │
+              ┌──────────┼──────────┐
+              ▼          ▼          ▼
+          CONSISTENT  CONTRADICTION  UNKNOWN
+                         │
+                         ▼
+                  Human Diagnostics
 ```
 
-```
+### Repository structure
+
+```text
 rayleigh/
-├── dimension.py     7-vector of exact Fractions, with algebra
-├── constraints.py   constraint records with source provenance
-├── walker.py        ast.NodeVisitor → constraint set
-├── constants.py     physical constant fingerprints
-├── priors.py        variable-name heuristics
-├── solver.py        exact Gaussian elimination over ℚ
-└── report.py        tiering, coverage, output
+├── rayleigh/
+│   ├── dimension.py
+│   ├── constants.py
+│   ├── priors.py
+│   ├── constraints.py
+│   ├── walker.py
+│   ├── solver.py
+│   ├── report.py
+│   └── cli.py
+│
+├── tests/
+│   ├── test_dimension.py
+│   ├── test_constraints.py
+│   ├── test_walker.py
+│   ├── test_solver.py
+│   └── fixtures/
+│
+├── examples/
+├── .github/
+│   └── workflows/
+└── pyproject.toml
 ```
 
-`dimension.py` and `solver.py` never import `ast`. `walker.py` never solves anything.
-The two failure modes — extracting wrong constraints, and solving a correct system
-wrongly — look identical at the CLI, so they are kept separable and independently
-testable.
+---
 
-## Contributing
+## Installation
 
-The most useful contributions right now:
+### From source
 
-- **Real code that breaks it.** False positives are the highest-priority bug class.
-- **Physical constants** missing from the fingerprint table.
-- **Test fixtures** — especially *ambiguous* programs where `unknown` is the correct
-  answer. These are the hardest to write and the most valuable.
-- **Library dimensional signatures** for NumPy, SciPy, and `astropy`.
+```bash
+git clone https://github.com/kavya5cloud/Rayleigh.git
+cd Rayleigh
+
+python -m venv .venv
+source .venv/bin/activate
+
+pip install -e .
+```
+
+### Development dependencies
+
+```bash
+pip install pytest
+```
+
+---
+
+## Usage
+
+Check a Python file:
+
+```bash
+rayleigh check examples/constraint_demo.py
+```
+
+Rayleigh reports:
+
+```text
+✗ DIMENSIONAL CONTRADICTION
+
+Line 5: addition/subtraction requires matching dimensions
+
+    acceleration = speed + 9.81
+
+Left:  L T^-1
+Right: L T^-2
+```
+
+---
+
+## Example
+
+Input:
+
+```python
+distance = 100
+time = 5
+speed = distance / time
+
+acceleration = speed + 9.81
+```
+
+Rayleigh reconstructs:
+
+```text
+distance
+  → L
+
+time
+  → T
+
+speed
+  → distance / time
+  → L T⁻¹
+
+9.81
+  → standard gravity
+  → L T⁻²
+```
+
+The final operation requires:
+
+```text
+L T⁻¹ = L T⁻²
+```
+
+which is impossible.
+
+Rayleigh therefore reports the dimensional contradiction.
+
+---
+
+## Design principles
+
+### Physics before presentation
+
+The core of Rayleigh is the inference engine, not a UI.
+
+### Static before runtime
+
+Rayleigh aims to identify dimensional errors from source code without executing the scientific program.
+
+### Exact when possible
+
+The solver uses exact rational arithmetic for dimensional exponents instead of relying on floating-point approximations.
+
+### Honest uncertainty
+
+When the available evidence does not uniquely determine a dimension, Rayleigh reports `UNKNOWN`.
+
+### Explain the contradiction
+
+A useful diagnostic should show not only **what failed**, but also the dimensional reasoning that led to the failure.
+
+---
+
+## Current scope
+
+Rayleigh currently focuses on **single-file Python analysis**.
+
+The current engine supports:
+
+* SI base-dimension vectors
+* symbolic dimensional expressions
+* AST-based constraint extraction
+* arithmetic dimensional algebra
+* dimensional requirements for mathematical functions
+* physical constant fingerprints
+* variable-name priors
+* linear constraint solving
+* contradiction detection
+* underdetermination detection
+* source-line diagnostics
+
+Cross-module semantic inference and broader scientific-library awareness are intentionally outside the initial scope.
+
+---
+
+## Development
+
+Run the test suite:
+
+```bash
+python -m pytest
+```
+
+Rayleigh's CI runs the same tests automatically through GitHub Actions.
+
+The project is being developed incrementally around a simple principle:
+
+```text
+source code
+    ↓
+hidden physical constraints
+    ↓
+formal representation
+    ↓
+inference
+    ↓
+scientific diagnosis
+```
+
+---
+
+## Roadmap
+
+* [x] SI dimensional representation
+* [x] Symbolic dimension expressions
+* [x] AST constraint extraction
+* [x] Physical constant fingerprints
+* [x] Variable-name priors
+* [x] Linear constraint solver
+* [x] Contradiction detection
+* [x] Source-level diagnostics
+* [ ] Richer provenance explanations
+* [ ] JSON diagnostics
+* [ ] CI-friendly machine-readable output
+* [ ] More scientific function semantics
+* [ ] Cross-module inference
+* [ ] IDE integration
+* [ ] Larger benchmark suite
+
+---
 
 ## Status
 
-Rayleigh is an open research and engineering project exploring automatic dimensional
-inference for unannotated scientific Python. It is not peer-reviewed, has not been
-benchmarked, and makes no novelty claim against the existing literature on
-dimensional type inference — see
-[Related Work](docs/rayleigh-whitepaper.md#12-related-work).
+**Early research / engineering prototype**
+
+Rayleigh is an evolving project. The current implementation demonstrates the core idea: **physical dimensions can be inferred from otherwise unannotated scientific Python by treating code as a system of dimensional constraints.**
+
+---
 
 ## License
 
-MIT
+MIT License
+
+---
+
+## Author
+
+Built by **Kavya Shree**.
+
+GitHub: [kavya5cloud/Rayleigh](https://github.com/kavya5cloud/Rayleigh)
+
+---
+
+> **Rayleigh turns implicit physics into explicit constraints.**
