@@ -1,8 +1,11 @@
 # Rayleigh: Dimensional Inference for Unannotated Scientific Python
 
 **Version:** 0.1.0
+
 **Status:** Open research / engineering project. Not peer-reviewed.
+
 **DOI:** *coming soon*
+
 **Repository:** `https://github.com/<user>/rayleigh`
 
 ---
