@@ -27,15 +27,7 @@ class SolveResult:
 
 def solve(constraints: list[Constraint]) -> SolveResult:
     """
-    Solve dimensional constraints over the seven SI base dimensions.
-
-    The solver:
-    1. Converts every dimensional equality into seven scalar equations.
-    2. Solves each base dimension independently using RREF.
-    3. Preserves all uniquely inferred dimensions.
-    4. Detects contradictions.
-    5. Adds operation-level diagnostic candidates for conflicts such as
-       incompatible addition/subtraction.
+    Solve dimensional constraints across the seven SI base dimensions.
     """
 
     variables = sorted(
@@ -59,8 +51,8 @@ def solve(constraints: list[Constraint]) -> SolveResult:
         )
 
     solved_dimensions: dict[str, list[Fraction | None]] = {
-        variable: [None] * len(BASE_DIMENSIONS)
-        for variable in variables
+        name: [None] * len(BASE_DIMENSIONS)
+        for name in variables
     }
 
     contradictions: list[Finding] = []
@@ -103,6 +95,7 @@ def solve(constraints: list[Constraint]) -> SolveResult:
 
         solution, inconsistent_rows = _rref_solve(matrix)
 
+        # Record contradictions while preserving original row provenance.
         for row_index in inconsistent_rows:
             if 0 <= row_index < len(provenance):
                 constraint = provenance[row_index]
@@ -124,7 +117,7 @@ def solve(constraints: list[Constraint]) -> SolveResult:
                     )
                 )
 
-        # Preserve whatever can still be inferred.
+        # Preserve dimensions that can still be solved.
         if solution is not None:
             for variable_index, name in enumerate(variables):
                 value = solution[variable_index]
@@ -184,170 +177,13 @@ def solve(constraints: list[Constraint]) -> SolveResult:
     )
 
 
-def _find_operation_conflicts(
-    constraints: list[Constraint],
-) -> list[Finding]:
-    """
-    Detect direct operation conflicts.
-
-    For operations such as:
-        a + b
-        a - b
-        a % b
-        a < b
-
-    the operands must have identical dimensions.
-    """
-
-    findings: list[Finding] = []
-
-    operation_messages = {
-        "addition/subtraction",
-        "modulo",
-        "comparison",
-        "conditional expression",
-    }
-
-    for index, constraint in enumerate(constraints):
-        if constraint.message not in operation_messages:
-            continue
-
-        # Use the rest of the constraints to infer concrete dimensions
-        # of the operands involved in this operation.
-        context = [
-            other
-            for other_index, other in enumerate(constraints)
-            if other_index != index
-            and not other.message.startswith("assignment to ")
-        ]
-
-        left_dimension = _infer_expression_dimension(
-            constraint.left,
-            context,
-        )
-
-        right_dimension = _infer_expression_dimension(
-            constraint.right,
-            context,
-        )
-
-        if (
-            left_dimension is not None
-            and right_dimension is not None
-            and left_dimension != right_dimension
-        ):
-            findings.append(
-                Finding(
-                    status="contradiction",
-                    line=constraint.line,
-                    message=(
-                        f"{constraint.message} requires "
-                        "matching dimensions"
-                    ),
-                    left=left_dimension.format(),
-                    right=right_dimension.format(),
-                    chain=(
-                        constraint.chain
-                        or (constraint.message,)
-                    ),
-                )
-            )
-
-    return findings
-
-
-def _infer_expression_dimension(
-    expression,
-    context: list[Constraint],
-) -> Dimension | None:
-    """
-    Infer a concrete dimension for a DimensionExpr.
-
-    Returns None when the available constraints are insufficient.
-    """
-
-    variables = sorted(
-        {
-            name
-            for constraint in context
-            for name in (
-                *constraint.left.coefficients.keys(),
-                *constraint.right.coefficients.keys(),
-            )
-        }
-    )
-
-    # Expression is already concrete.
-    if not expression.coefficients:
-        return expression.constant
-
-    if not variables:
-        return None
-
-    solved: dict[str, list[Fraction | None]] = {
-        name: [None] * len(BASE_DIMENSIONS)
-        for name in variables
-    }
-
-    for dim_index in range(len(BASE_DIMENSIONS)):
-        matrix: list[list[Fraction]] = []
-
-        for constraint in context:
-            coeffs, rhs = _equation_row(
-                constraint,
-                dim_index,
-                variables,
-            )
-
-            if all(value == 0 for value in coeffs):
-                if rhs != 0:
-                    return None
-                continue
-
-            matrix.append(coeffs + [rhs])
-
-        solution, inconsistent_rows = _rref_solve(matrix)
-
-        if inconsistent_rows or solution is None:
-            return None
-
-        for variable_index, name in enumerate(variables):
-            if solution[variable_index] is not None:
-                solved[name][dim_index] = solution[
-                    variable_index
-                ]
-
-    result = expression.constant
-
-    for name, coefficient in expression.coefficients.items():
-        values = solved.get(name)
-
-        if values is None:
-            return None
-
-        if any(value is None for value in values):
-            return None
-
-        dimension = Dimension(
-            tuple(
-                value
-                for value in values
-                if value is not None
-            )
-        )
-
-        result = result + dimension * coefficient
-
-    return result
-
-
 def _find_suspect_constraints(
     constraints: list[Constraint],
 ) -> list[Finding]:
     """
     Identify constraints whose removal restores consistency.
 
-    This is a heuristic diagnostic, not mathematical proof of blame.
+    This is a diagnostic heuristic, not proof of blame.
     """
 
     findings: list[Finding] = []
@@ -385,7 +221,7 @@ def _constraints_are_consistent(
     constraints: list[Constraint],
 ) -> bool:
     """
-    Check whether a set of constraints is mathematically consistent.
+    Return True if the complete constraint system is consistent.
     """
 
     variables = sorted(
@@ -444,29 +280,24 @@ def _equation_row(
         A*x = b
     """
 
-    coefficient_map = {
+    coeff_map = {
         name: Fraction(0)
         for name in variables
     }
 
     for name, coefficient in constraint.left.coefficients.items():
-        coefficient_map[name] += coefficient
+        coeff_map[name] += coefficient
 
     for name, coefficient in constraint.right.coefficients.items():
-        coefficient_map[name] -= coefficient
+        coeff_map[name] -= coefficient
 
-    left_constant = (
-        constraint.left.constant.exponents[dim_index]
-    )
-
-    right_constant = (
-        constraint.right.constant.exponents[dim_index]
-    )
+    left_constant = constraint.left.constant.exponents[dim_index]
+    right_constant = constraint.right.constant.exponents[dim_index]
 
     rhs = right_constant - left_constant
 
     row = [
-        coefficient_map[name]
+        coeff_map[name]
         for name in variables
     ]
 
@@ -477,30 +308,25 @@ def _rref_solve(
     matrix: list[list[Fraction]],
 ) -> tuple[list[Fraction | None] | None, list[int]]:
     """
-    Solve a linear system with exact Fraction arithmetic.
+    Solve a linear system using exact RREF.
 
-    Returns:
-        (solution, inconsistent_rows)
-
-    The indexes in inconsistent_rows refer to the original
-    rows passed into this function.
+    Provenance is stored separately from the arithmetic matrix so
+    row operations cannot corrupt original row indexes.
     """
 
     if not matrix:
         return [None] * 0, []
 
-    # Internal row format:
-    #
-    # [coefficients..., rhs, original_row_index]
-
-    augmented = [
-        row[:] + [Fraction(index)]
+    rows = [
+        {
+            "values": row[:],
+            "source": index,
+        }
         for index, row in enumerate(matrix)
     ]
 
-    row_count = len(augmented)
-
-    variable_count = len(augmented[0]) - 2
+    row_count = len(rows)
+    variable_count = len(matrix[0]) - 1
 
     pivot_row = 0
     pivot_columns: dict[int, int] = {}
@@ -510,7 +336,7 @@ def _rref_solve(
             (
                 row
                 for row in range(pivot_row, row_count)
-                if augmented[row][column] != 0
+                if rows[row]["values"][column] != 0
             ),
             None,
         )
@@ -518,75 +344,234 @@ def _rref_solve(
         if pivot is None:
             continue
 
-        augmented[pivot_row], augmented[pivot] = (
-            augmented[pivot],
-            augmented[pivot_row],
+        rows[pivot_row], rows[pivot] = (
+            rows[pivot],
+            rows[pivot_row],
         )
 
-        divisor = augmented[pivot_row][column]
+        values = rows[pivot_row]["values"]
+        divisor = values[column]
 
-        augmented[pivot_row] = [
+        rows[pivot_row]["values"] = [
             value / divisor
-            for value in augmented[pivot_row]
+            for value in values
         ]
 
         for row in range(row_count):
             if row == pivot_row:
                 continue
 
-            factor = augmented[row][column]
+            current = rows[row]["values"]
+            factor = current[column]
 
             if factor == 0:
                 continue
 
-            augmented[row] = [
-                current - factor * pivot_value
-                for current, pivot_value in zip(
-                    augmented[row],
-                    augmented[pivot_row],
+            pivot_values = rows[pivot_row]["values"]
+
+            rows[row]["values"] = [
+                current_value - factor * pivot_value
+                for current_value, pivot_value in zip(
+                    current,
+                    pivot_values,
                 )
             ]
 
         pivot_columns[column] = pivot_row
-
         pivot_row += 1
 
         if pivot_row == row_count:
             break
 
+    # ------------------------------------------------------------
+    # Contradictions
+    # ------------------------------------------------------------
+
     inconsistent_rows: list[int] = []
 
-    for row in augmented:
-        coefficients = row[:variable_count]
-        rhs = row[variable_count]
-        original_index = int(row[variable_count + 1])
+    for row in rows:
+        values = row["values"]
+
+        coefficients = values[:variable_count]
+        rhs = values[variable_count]
 
         if (
             all(value == 0 for value in coefficients)
             and rhs != 0
         ):
-            inconsistent_rows.append(original_index)
+            inconsistent_rows.append(
+                row["source"]
+            )
 
     if inconsistent_rows:
         return None, inconsistent_rows
+
+    # ------------------------------------------------------------
+    # Unique solutions
+    # ------------------------------------------------------------
 
     solution: list[Fraction | None] = [
         None
     ] * variable_count
 
     for column, row_index in pivot_columns.items():
+        values = rows[row_index]["values"]
+
         has_free_terms = any(
             other_column != column
-            and augmented[row_index][other_column] != 0
+            and values[other_column] != 0
             for other_column in range(variable_count)
         )
 
         if not has_free_terms:
-            solution[column] = augmented[
-                row_index
-            ][variable_count]
+            solution[column] = values[variable_count]
 
     return solution, []
+
+
+def _find_operation_conflicts(
+    constraints: list[Constraint],
+) -> list[Finding]:
+    """
+    Identify direct dimensional conflicts in operations such as
+    addition, subtraction, modulo, and comparisons.
+    """
+
+    findings: list[Finding] = []
+
+    operation_messages = {
+        "addition/subtraction",
+        "modulo",
+        "comparison",
+        "conditional expression",
+    }
+
+    for index, constraint in enumerate(constraints):
+        if constraint.message not in operation_messages:
+            continue
+
+        context = [
+            other
+            for other_index, other in enumerate(constraints)
+            if other_index != index
+            and not other.message.startswith("assignment to ")
+        ]
+
+        left_dimension = _infer_expression_dimension(
+            constraint.left,
+            context,
+        )
+
+        right_dimension = _infer_expression_dimension(
+            constraint.right,
+            context,
+        )
+
+        if (
+            left_dimension is not None
+            and right_dimension is not None
+            and left_dimension != right_dimension
+        ):
+            findings.append(
+                Finding(
+                    status="contradiction",
+                    line=constraint.line,
+                    message=(
+                        f"{constraint.message} requires "
+                        "matching dimensions"
+                    ),
+                    left=left_dimension.format(),
+                    right=right_dimension.format(),
+                    chain=(
+                        constraint.chain
+                        or (constraint.message,)
+                    ),
+                )
+            )
+
+    return findings
+
+
+def _infer_expression_dimension(
+    expression,
+    context: list[Constraint],
+) -> Dimension | None:
+    """
+    Infer a concrete dimension for a symbolic expression.
+
+    Returns None when the available constraints are insufficient.
+    """
+
+    variables = sorted(
+        {
+            name
+            for constraint in context
+            for name in (
+                *constraint.left.coefficients.keys(),
+                *constraint.right.coefficients.keys(),
+            )
+        }
+    )
+
+    if not expression.coefficients:
+        return expression.constant
+
+    if not variables:
+        return None
+
+    values: dict[str, list[Fraction | None]] = {
+        name: [None] * len(BASE_DIMENSIONS)
+        for name in variables
+    }
+
+    for dim_index in range(len(BASE_DIMENSIONS)):
+        matrix: list[list[Fraction]] = []
+
+        for constraint in context:
+            coeffs, rhs = _equation_row(
+                constraint,
+                dim_index,
+                variables,
+            )
+
+            if all(value == 0 for value in coeffs):
+                if rhs != 0:
+                    return None
+                continue
+
+            matrix.append(coeffs + [rhs])
+
+        solution, inconsistent_rows = _rref_solve(matrix)
+
+        if inconsistent_rows or solution is None:
+            return None
+
+        for index, name in enumerate(variables):
+            if solution[index] is not None:
+                values[name][dim_index] = solution[index]
+
+    result = expression.constant
+
+    for name, coefficient in expression.coefficients.items():
+        dimension_values = values.get(name)
+
+        if dimension_values is None:
+            return None
+
+        if any(value is None for value in dimension_values):
+            return None
+
+        dimension = Dimension(
+            tuple(
+                value
+                for value in dimension_values
+                if value is not None
+            )
+        )
+
+        result = result + dimension * coefficient
+
+    return result
 
 
 def _to_dimension(
@@ -594,8 +579,6 @@ def _to_dimension(
 ) -> Dimension | None:
     """
     Convert seven solved exponents into a concrete Dimension.
-
-    Returns None when at least one exponent remains unknown.
     """
 
     if any(value is None for value in values):
