@@ -16,7 +16,7 @@ acceleration = speed + 9.81
 
 Rayleigh can reason that:
 
-```text
+```text 
 speed      → L T⁻¹
 9.81       → L T⁻²
 ```
