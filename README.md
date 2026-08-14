@@ -393,8 +393,8 @@ scientific diagnosis
 * [x] Linear constraint solver
 * [x] Contradiction detection
 * [x] Source-level diagnostics
-* [ ] Richer provenance explanations
-* [ ] JSON diagnostics
+* [x] Richer provenance explanations
+* [x] JSON diagnostics
 * [ ] CI-friendly machine-readable output
 * [ ] More scientific function semantics
 * [ ] Cross-module inference
