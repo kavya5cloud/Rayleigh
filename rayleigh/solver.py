@@ -9,12 +9,13 @@ from .dimension import Dimension, BASE_DIMENSIONS
 
 @dataclass(frozen=True)
 class Finding:
-    status: str  # consistent | contradiction | unknown
+    status: str
     line: int | None
     message: str
     left: str | None = None
     right: str | None = None
     chain: tuple[str, ...] = ()
+    kind: str = "solver_contradiction"
 
 
 @dataclass
@@ -176,7 +177,6 @@ def solve(constraints: list[Constraint]) -> SolveResult:
         unknowns=unknowns,
     )
 
-
 def _find_suspect_constraints(
     constraints: list[Constraint],
 ) -> list[Finding]:
@@ -213,6 +213,69 @@ def _find_suspect_constraints(
                 ),
             )
         )
+
+    return findings
+
+def _find_operation_conflicts(
+    constraints: list[Constraint],
+) -> list[Finding]:
+    """
+    Identify direct dimensional conflicts in operations such as
+    addition, subtraction, modulo, and comparisons.
+    """
+
+    findings: list[Finding] = []
+
+    operation_messages = {
+        "addition/subtraction",
+        "modulo",
+        "comparison",
+        "conditional expression",
+    }
+
+    for index, constraint in enumerate(constraints):
+        if constraint.message not in operation_messages:
+            continue
+
+        context = [
+            other
+            for other_index, other in enumerate(constraints)
+            if other_index != index
+            and not other.message.startswith("assignment to ")
+        ]
+
+        left_dimension = _infer_expression_dimension(
+            constraint.left,
+            context,
+        )
+
+        right_dimension = _infer_expression_dimension(
+            constraint.right,
+            context,
+        )
+
+        if (
+            left_dimension is not None
+            and right_dimension is not None
+            and left_dimension != right_dimension
+        ):
+            findings.append(
+                Finding(
+                    status="contradiction",
+                    line=constraint.line,
+                    message=(
+                        f"{constraint.message} requires "
+                        "matching dimensions"
+                    ),
+                    left=left_dimension.format(),
+                    right=right_dimension.format(),
+                    chain=(
+                        constraint.chain
+                        or (constraint.message,)
+                    ),
+                    kind="dimension_mismatch",
+                )
+            )
 
     return findings
 
