@@ -5,7 +5,11 @@ import json
 import sys
 from pathlib import Path
 
-from .report import render_constraints, render_result
+from .report import (
+    build_provenance,
+    render_constraints,
+    render_result,
+)
 from .solver import solve
 from .walker import collect_constraints
 
@@ -70,6 +74,7 @@ def _finding_to_json(finding) -> dict[str, object]:
         "chain": list(finding.chain),
     }
 
+
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
 
@@ -96,6 +101,22 @@ def main(argv: list[str] | None = None) -> int:
     result = solve(walk.constraints)
 
     if args.as_json:
+        contradictions = []
+
+        if result.contradictions:
+            primary = next(
+                (
+                    finding
+                    for finding in result.contradictions
+                    if finding.kind == "dimension_mismatch"
+                ),
+                result.contradictions[0],
+            )
+
+            contradictions = [
+                _finding_to_json(primary)
+            ]
+
         payload = {
             "tool": "rayleigh",
             "status": result.status,
@@ -106,18 +127,11 @@ def main(argv: list[str] | None = None) -> int:
                 in sorted(result.assignments.items())
             },
             "unknowns": sorted(result.unknowns),
-            "contradictions": [
-             _finding_to_json(
-            next(
-                (
-                    finding
-                    for finding in result.contradictions
-                    if finding.kind == "dimension_mismatch"
-                ),
-            result.contradictions[0],
-        )
-    )
-] if result.contradictions else [],
+            "contradictions": contradictions,
+            "provenance": build_provenance(
+                walk,
+                result,
+            ),
         }
 
         print(
@@ -137,6 +151,7 @@ def main(argv: list[str] | None = None) -> int:
             render_result(
                 result,
                 source,
+                walk,
             )
         )
 
