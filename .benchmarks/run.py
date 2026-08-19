@@ -52,12 +52,22 @@ def run_case(path: Path, expected: str) -> BenchmarkResult:
 def main() -> None:
     results: list[BenchmarkResult] = []
 
+    # Original benchmark categories.
     for category, expected in EXPECTED.items():
         directory = ROOT / category
 
         for path in sorted(directory.glob("*.py")):
             results.append(
                 run_case(path, expected)
+            )
+
+    # Domain benchmark categories.
+    domain_directory = ROOT / "domain"
+
+    if domain_directory.exists():
+        for path in sorted(domain_directory.rglob("*.py")):
+            results.append(
+                run_case(path, "consistent")
             )
 
     print("Rayleigh Benchmark")

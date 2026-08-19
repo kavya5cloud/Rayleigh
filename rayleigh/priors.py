@@ -45,7 +45,56 @@ PATTERNS: list[tuple[re.Pattern[str], Dimension, str]] = [
         _L * 3,
         "volume name",
     ),
+    # Displacement
+    (
+        re.compile(
+            r"^displacement(?:_\d+)?(?:_m|_cm|_mm)?$",
+            re.I,
+        ),
+        _L,
+        "displacement name",
+    ),
 
+    # Spring constant
+    (
+        re.compile(
+            r"^spring_constant(?:_\d+)?(?:_n_m)?$",
+            re.I,
+        ),
+        _M - (_T * 2),
+        "spring-constant name",
+    ),
+
+        # Pressure
+    (
+        re.compile(
+            r"^pressure(?:_\d+)?(?:_pa|_kpa|_bar)?$",
+            re.I,
+        ),
+        _M - _L - (_T * 2),
+        "pressure name",
+    ),
+
+    # Specific heat capacity
+    (
+        re.compile(
+            r"^specific_heat(?:_\d+)?(?:_j_kg_k)?$",
+            re.I,
+        ),
+        (_L * 2) - (_T * 2) - _TH,
+        "specific-heat name",
+    ),
+
+    # Temperature change
+    (
+        re.compile(
+            r"^(?:temperature_change|delta_t)(?:_\d+)?(?:_k)?$",
+            re.I,
+        ),
+        _TH,
+        "temperature-change name",
+    ),
+    
     # Length
     (
         re.compile(
