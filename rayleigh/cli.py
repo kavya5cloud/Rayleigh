@@ -86,7 +86,25 @@ def _finding_to_json(finding) -> dict[str, object]:
         "right": finding.right,
         "chain": list(finding.chain),
     }
-
+def _diagnostic_to_json(
+    finding,
+) -> dict[str, object]:
+    return {
+        "line": finding.line,
+        "column": (
+            finding.column + 1
+            if finding.column is not None
+            else None
+        ),
+        "end_column": (
+            finding.end_column + 1
+            if finding.end_column is not None
+            else None
+        ),
+        "severity": finding.severity,
+        "code": finding.kind,
+        "message": finding.message,
+    }
 
 def main(argv: list[str] | None = None) -> int:
     
@@ -155,6 +173,10 @@ def main(argv: list[str] | None = None) -> int:
                 in sorted(result.assignments.items())
             },
             "unknowns": sorted(result.unknowns),
+            "diagnostics": [
+                _diagnostic_to_json(finding)
+                for finding in result.contradictions[:1]
+            ],
             "contradictions": contradictions,
             "provenance": build_provenance(
                 walk,
@@ -192,3 +214,23 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+def _diagnostic_to_json(
+    finding,
+) -> dict[str, object]:
+    return {
+        "line": finding.line,
+        "column": (
+            finding.column + 1
+            if finding.column is not None
+            else None
+        ),
+        "end_column": (
+            finding.end_column + 1
+            if finding.end_column is not None
+            else None
+        ),
+        "severity": finding.severity,
+        "code": finding.kind,
+        "message": finding.message,
+    }
