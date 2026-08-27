@@ -1,4 +1,6 @@
 {
+  "version": 1,
+  "description": "Rayleigh dimensional-analysis benchmark suite",
   "cases": {
     "ambiguous/a001_unknown_input.py": {
       "domain": "ambiguous",

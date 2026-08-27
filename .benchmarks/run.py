@@ -1,5 +1,9 @@
 from __future__ import annotations
-
+REQUIRED_METADATA = {
+    "domain",
+    "expected",
+    "purpose",
+}
 import json
 import re
 import subprocess
