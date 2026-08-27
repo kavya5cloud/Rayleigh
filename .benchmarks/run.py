@@ -1,12 +1,9 @@
 from __future__ import annotations
-REQUIRED_METADATA = {
-    "domain",
-    "expected",
-    "purpose",
-}
+
 import json
 import re
 import subprocess
+from collections import Counter, defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -20,6 +17,18 @@ VALID_STATUSES = {
     "unknown",
 }
 
+EXPECTED_BY_CATEGORY = {
+    "valid": "consistent",
+    "invalid": "contradiction",
+    "ambiguous": "unknown",
+}
+
+REQUIRED_METADATA = {
+    "domain",
+    "expected",
+    "purpose",
+}
+
 
 @dataclass
 class BenchmarkResult:
@@ -27,16 +36,11 @@ class BenchmarkResult:
     expected: str
     actual: str
     passed: bool
-
-
-EXPECTED_BY_CATEGORY = {
-    "valid": "consistent",
-    "invalid": "contradiction",
-    "ambiguous": "unknown",
-}
+    domain: str
 
 
 def parse_expected_marker(path: Path) -> str | None:
+    """Read an explicit '# EXPECTED: <status>' marker."""
     try:
         source = path.read_text(encoding="utf-8")
     except OSError:
@@ -49,15 +53,19 @@ def parse_expected_marker(path: Path) -> str | None:
             re.IGNORECASE,
         )
 
-        if match:
-            status = match.group(1).lower()
-            if status in VALID_STATUSES:
-                return status
+        if not match:
+            continue
+
+        status = match.group(1).lower()
+
+        if status in VALID_STATUSES:
+            return status
 
     return None
 
 
 def discover_cases() -> list[Path]:
+    """Discover all benchmark Python files."""
     cases: list[Path] = []
 
     for category in (
@@ -82,19 +90,35 @@ def discover_cases() -> list[Path]:
     return sorted(cases)
 
 
-def infer_expected_from_path(path: Path) -> str | None:
+def infer_expected_from_path(
+    path: Path,
+) -> str | None:
+    """Infer expected status for legacy benchmark categories."""
     relative = path.relative_to(ROOT)
     parts = relative.parts
 
     if not parts:
         return None
 
-    category = parts[0]
+    return EXPECTED_BY_CATEGORY.get(parts[0])
 
-    return EXPECTED_BY_CATEGORY.get(category)
+
+def infer_domain_from_path(path: Path) -> str:
+    """Infer a readable domain name from a benchmark path."""
+    relative = path.relative_to(ROOT)
+    parts = relative.parts
+
+    if not parts:
+        return "unknown"
+
+    if parts[0] == "domain" and len(parts) >= 2:
+        return parts[1]
+
+    return "core"
 
 
 def build_default_manifest() -> dict:
+    """Build a manifest from the current benchmark tree."""
     cases: dict[str, dict[str, str]] = {}
 
     for path in discover_cases():
@@ -112,27 +136,28 @@ def build_default_manifest() -> dict:
                 f"Missing expected status for {relative}"
             )
 
-        purpose = path.stem.replace("_", " ").strip()
-
         cases[relative] = {
-            "domain": (
-                path.relative_to(ROOT)
-                .parts[1]
-                if path.relative_to(ROOT).parts[0] == "domain"
-                and len(path.relative_to(ROOT).parts) > 2
-                else path.relative_to(ROOT).parts[0]
-            ),
+            "domain": infer_domain_from_path(path),
             "expected": expected,
-            "purpose": purpose,
+            "purpose": (
+                path.stem
+                .replace("_", " ")
+                .strip()
+            ),
         }
 
     return {
         "version": 1,
+        "description": (
+            "Rayleigh dimensional-analysis "
+            "benchmark suite"
+        ),
         "cases": cases,
     }
 
 
 def load_manifest() -> dict:
+    """Load the benchmark manifest, generating it if needed."""
     if not MANIFEST.exists():
         manifest = build_default_manifest()
 
@@ -150,10 +175,13 @@ def load_manifest() -> dict:
     try:
         manifest = json.loads(
             MANIFEST.read_text(
-                encoding="utf-8"
+                encoding="utf-8",
             )
         )
-    except (OSError, json.JSONDecodeError) as exc:
+    except (
+        OSError,
+        json.JSONDecodeError,
+    ) as exc:
         raise SystemExit(
             f"Invalid benchmark manifest: {exc}"
         ) from exc
@@ -165,7 +193,6 @@ def load_manifest() -> dict:
 
     cases = manifest.get("cases")
 
-    # Existing placeholder manifest: generate it now.
     if cases == {}:
         manifest = build_default_manifest()
 
@@ -182,11 +209,15 @@ def load_manifest() -> dict:
 
     if not isinstance(cases, dict):
         raise SystemExit(
-            "Benchmark manifest must contain a 'cases' object"
+            "Benchmark manifest must contain "
+            "a 'cases' object"
         )
 
     return manifest
+
+
 def validate_manifest(manifest: dict) -> None:
+    """Ensure manifest and benchmark tree are synchronized."""
     cases = manifest["cases"]
 
     discovered = {
@@ -223,6 +254,19 @@ def validate_manifest(manifest: dict) -> None:
                 f"Invalid metadata for {path}"
             )
 
+        missing_metadata = (
+            REQUIRED_METADATA
+            - set(metadata)
+        )
+
+        if missing_metadata:
+            raise SystemExit(
+                f"Missing metadata for {path}: "
+                + ", ".join(
+                    sorted(missing_metadata)
+                )
+            )
+
         expected = metadata.get("expected")
         domain = metadata.get("domain")
         purpose = metadata.get("purpose")
@@ -245,6 +289,7 @@ def validate_manifest(manifest: dict) -> None:
 
 
 def detect_actual(output: str) -> str:
+    """Convert Rayleigh CLI output into a status."""
     if "✓ CONSISTENT" in output:
         return "consistent"
 
@@ -260,7 +305,9 @@ def detect_actual(output: str) -> str:
 def run_case(
     path: Path,
     expected: str,
+    domain: str,
 ) -> BenchmarkResult:
+    """Run one benchmark case."""
     result = subprocess.run(
         [
             "rayleigh",
@@ -279,7 +326,73 @@ def run_case(
         expected=expected,
         actual=actual,
         passed=actual == expected,
+        domain=domain,
     )
+
+
+def print_summary(
+    results: list[BenchmarkResult],
+) -> None:
+    """Print domain and status summaries."""
+    print()
+    print("Benchmark Summary")
+    print("-" * 72)
+
+    # ------------------------------------------------------------
+    # Results by domain.
+    # ------------------------------------------------------------
+
+    by_domain: dict[
+        str,
+        list[BenchmarkResult],
+    ] = defaultdict(list)
+
+    for result in results:
+        by_domain[result.domain].append(result)
+
+    for domain in sorted(by_domain):
+        domain_results = by_domain[domain]
+        passed = sum(
+            result.passed
+            for result in domain_results
+        )
+        total = len(domain_results)
+
+        percentage = (
+            passed / total * 100
+            if total
+            else 0.0
+        )
+
+        print(
+            f"{domain.title():20} "
+            f"{passed:2}/{total:<2} "
+            f"({percentage:5.1f}%)"
+        )
+
+    # ------------------------------------------------------------
+    # Results by actual status.
+    # ------------------------------------------------------------
+
+    status_counts = Counter(
+        result.actual
+        for result in results
+    )
+
+    print()
+    print("Status Distribution")
+    print("-" * 72)
+
+    for status in (
+        "consistent",
+        "contradiction",
+        "unknown",
+        "error",
+    ):
+        print(
+            f"{status.title():20} "
+            f"{status_counts.get(status, 0)}"
+        )
 
 
 def main() -> None:
@@ -297,6 +410,7 @@ def main() -> None:
             run_case(
                 path,
                 metadata["expected"],
+                metadata["domain"],
             )
         )
 
@@ -327,8 +441,15 @@ def main() -> None:
     print(f"Passed: {passed}/{total}")
 
     if total:
-        accuracy = passed / total * 100
-        print(f"Accuracy: {accuracy:.1f}%")
+        accuracy = (
+            passed / total * 100
+        )
+
+        print(
+            f"Accuracy: {accuracy:.1f}%"
+        )
+
+    print_summary(results)
 
     if passed != total:
         raise SystemExit(1)
