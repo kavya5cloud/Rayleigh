@@ -1,0 +1,300 @@
+{
+  "cases": {
+    "ambiguous/a001_unknown_input.py": {
+      "domain": "ambiguous",
+      "expected": "unknown",
+      "purpose": "a001 unknown input"
+    },
+    "ambiguous/a002_unknown_function.py": {
+      "domain": "ambiguous",
+      "expected": "unknown",
+      "purpose": "a002 unknown function"
+    },
+    "ambiguous/a003_unknown_addition.py": {
+      "domain": "ambiguous",
+      "expected": "unknown",
+      "purpose": "a003 unknown addition"
+    },
+    "ambiguous/a004_unknown_sin.py": {
+      "domain": "ambiguous",
+      "expected": "unknown",
+      "purpose": "a004 unknown sin"
+    },
+    "ambiguous/a005_unknown_exponent.py": {
+      "domain": "ambiguous",
+      "expected": "unknown",
+      "purpose": "a005 unknown exponent"
+    },
+    "ambiguous/a006_unknown_ratio.py": {
+      "domain": "ambiguous",
+      "expected": "unknown",
+      "purpose": "a006 unknown ratio"
+    },
+    "ambiguous/a007_unknown_multiplication.py": {
+      "domain": "ambiguous",
+      "expected": "unknown",
+      "purpose": "a007 unknown multiplication"
+    },
+    "ambiguous/a008_known_over_unknown.py": {
+      "domain": "ambiguous",
+      "expected": "unknown",
+      "purpose": "a008 known over unknown"
+    },
+    "ambiguous/a009_unknown_sqrt.py": {
+      "domain": "ambiguous",
+      "expected": "unknown",
+      "purpose": "a009 unknown sqrt"
+    },
+    "ambiguous/a010_unknown_abs.py": {
+      "domain": "ambiguous",
+      "expected": "unknown",
+      "purpose": "a010 unknown abs"
+    },
+    "domain/electromagnetism/e001_ohms_law.py": {
+      "domain": "electromagnetism",
+      "expected": "consistent",
+      "purpose": "e001 ohms law"
+    },
+    "domain/electromagnetism/e002_charge.py": {
+      "domain": "electromagnetism",
+      "expected": "consistent",
+      "purpose": "e002 charge"
+    },
+    "domain/electromagnetism/e003_electrical_power.py": {
+      "domain": "electromagnetism",
+      "expected": "consistent",
+      "purpose": "e003 electrical power"
+    },
+    "domain/electromagnetism/e004_electric_force.py": {
+      "domain": "electromagnetism",
+      "expected": "consistent",
+      "purpose": "e004 electric force"
+    },
+    "domain/electromagnetism/e005_capacitor_energy.py": {
+      "domain": "electromagnetism",
+      "expected": "consistent",
+      "purpose": "e005 capacitor energy"
+    },
+    "domain/electromagnetism/e006_coulomb_force.py": {
+      "domain": "electromagnetism",
+      "expected": "consistent",
+      "purpose": "e006 coulomb force"
+    },
+    "domain/electromagnetism/e007_electric_potential_energy.py": {
+      "domain": "electromagnetism",
+      "expected": "consistent",
+      "purpose": "e007 electric potential energy"
+    },
+    "domain/electromagnetism/e008_electric_potential.py": {
+      "domain": "electromagnetism",
+      "expected": "consistent",
+      "purpose": "e008 electric potential"
+    },
+    "domain/electromagnetism/e009_magnetic_force.py": {
+      "domain": "electromagnetism",
+      "expected": "consistent",
+      "purpose": "e009 magnetic force"
+    },
+    "domain/electromagnetism/e010_magnetic_flux.py": {
+      "domain": "electromagnetism",
+      "expected": "consistent",
+      "purpose": "e010 magnetic flux"
+    },
+    "domain/electromagnetism/e011_invalid_voltage_current.py": {
+      "domain": "electromagnetism",
+      "expected": "contradiction",
+      "purpose": "e011 invalid voltage current"
+    },
+    "domain/electromagnetism/e012_unknown_magnetic_field.py": {
+      "domain": "electromagnetism",
+      "expected": "unknown",
+      "purpose": "e012 unknown magnetic field"
+    },
+    "domain/mechanics/m001_momentum.py": {
+      "domain": "mechanics",
+      "expected": "consistent",
+      "purpose": "m001 momentum"
+    },
+    "domain/mechanics/m002_kinetic_energy.py": {
+      "domain": "mechanics",
+      "expected": "consistent",
+      "purpose": "m002 kinetic energy"
+    },
+    "domain/mechanics/m003_acceleration.py": {
+      "domain": "mechanics",
+      "expected": "consistent",
+      "purpose": "m003 acceleration"
+    },
+    "domain/mechanics/m004_newtons_second_law.py": {
+      "domain": "mechanics",
+      "expected": "consistent",
+      "purpose": "m004 newtons second law"
+    },
+    "domain/mechanics/m005_gravitational_force.py": {
+      "domain": "mechanics",
+      "expected": "consistent",
+      "purpose": "m005 gravitational force"
+    },
+    "domain/mechanics/m006_spring_energy.py": {
+      "domain": "mechanics",
+      "expected": "consistent",
+      "purpose": "m006 spring energy"
+    },
+    "domain/mechanics/m007_work.py": {
+      "domain": "mechanics",
+      "expected": "consistent",
+      "purpose": "m007 work"
+    },
+    "domain/mechanics/m008_power.py": {
+      "domain": "mechanics",
+      "expected": "consistent",
+      "purpose": "m008 power"
+    },
+    "domain/mechanics/m009_impulse.py": {
+      "domain": "mechanics",
+      "expected": "consistent",
+      "purpose": "m009 impulse"
+    },
+    "domain/mechanics/m010_centripetal_acceleration.py": {
+      "domain": "mechanics",
+      "expected": "consistent",
+      "purpose": "m010 centripetal acceleration"
+    },
+    "domain/mechanics/m011_gravitational_potential_energy.py": {
+      "domain": "mechanics",
+      "expected": "consistent",
+      "purpose": "m011 gravitational potential energy"
+    },
+    "domain/thermodynamics/t001_ideal_gas.py": {
+      "domain": "thermodynamics",
+      "expected": "consistent",
+      "purpose": "t001 ideal gas"
+    },
+    "domain/thermodynamics/t002_ideal_gas_symbolic.py": {
+      "domain": "thermodynamics",
+      "expected": "consistent",
+      "purpose": "t002 ideal gas symbolic"
+    },
+    "domain/thermodynamics/t003_thermal_energy.py": {
+      "domain": "thermodynamics",
+      "expected": "consistent",
+      "purpose": "t003 thermal energy"
+    },
+    "domain/thermodynamics/t004_heat_capacity.py": {
+      "domain": "thermodynamics",
+      "expected": "consistent",
+      "purpose": "t004 heat capacity"
+    },
+    "domain/thermodynamics/t005_pressure_from_force_area.py": {
+      "domain": "thermodynamics",
+      "expected": "consistent",
+      "purpose": "t005 pressure from force area"
+    },
+    "domain/thermodynamics/t006_density.py": {
+      "domain": "thermodynamics",
+      "expected": "consistent",
+      "purpose": "t006 density"
+    },
+    "invalid/i001_velocity_gravity.py": {
+      "domain": "invalid",
+      "expected": "contradiction",
+      "purpose": "i001 velocity gravity"
+    },
+    "invalid/i002_mass_length.py": {
+      "domain": "invalid",
+      "expected": "contradiction",
+      "purpose": "i002 mass length"
+    },
+    "invalid/i003_velocity_time.py": {
+      "domain": "invalid",
+      "expected": "contradiction",
+      "purpose": "i003 velocity time"
+    },
+    "invalid/i004_force_energy.py": {
+      "domain": "invalid",
+      "expected": "contradiction",
+      "purpose": "i004 force energy"
+    },
+    "invalid/i005_area_volume.py": {
+      "domain": "invalid",
+      "expected": "contradiction",
+      "purpose": "i005 area volume"
+    },
+    "invalid/i006_mass_velocity.py": {
+      "domain": "invalid",
+      "expected": "contradiction",
+      "purpose": "i006 mass velocity"
+    },
+    "invalid/i007_pressure_energy.py": {
+      "domain": "invalid",
+      "expected": "contradiction",
+      "purpose": "i007 pressure energy"
+    },
+    "invalid/i008_distance_time.py": {
+      "domain": "invalid",
+      "expected": "contradiction",
+      "purpose": "i008 distance time"
+    },
+    "invalid/i009_force_force.py": {
+      "domain": "invalid",
+      "expected": "contradiction",
+      "purpose": "i009 force force"
+    },
+    "invalid/i010_sin_with_units.py": {
+      "domain": "invalid",
+      "expected": "contradiction",
+      "purpose": "i010 sin with units"
+    },
+    "valid/v001_basic_velocity.py": {
+      "domain": "valid",
+      "expected": "consistent",
+      "purpose": "v001 basic velocity"
+    },
+    "valid/v002_force.py": {
+      "domain": "valid",
+      "expected": "consistent",
+      "purpose": "v002 force"
+    },
+    "valid/v003_energy.py": {
+      "domain": "valid",
+      "expected": "consistent",
+      "purpose": "v003 energy"
+    },
+    "valid/v004_pressure.py": {
+      "domain": "valid",
+      "expected": "consistent",
+      "purpose": "v004 pressure"
+    },
+    "valid/v005_momentum.py": {
+      "domain": "valid",
+      "expected": "consistent",
+      "purpose": "v005 momentum"
+    },
+    "valid/v006_density.py": {
+      "domain": "valid",
+      "expected": "consistent",
+      "purpose": "v006 density"
+    },
+    "valid/v007_gravitational_force.py": {
+      "domain": "valid",
+      "expected": "consistent",
+      "purpose": "v007 gravitational force"
+    },
+    "valid/v008_spring_energy.py": {
+      "domain": "valid",
+      "expected": "consistent",
+      "purpose": "v008 spring energy"
+    },
+    "valid/v009_power.py": {
+      "domain": "valid",
+      "expected": "consistent",
+      "purpose": "v009 power"
+    },
+    "valid/v010_ideal_gas.py": {
+      "domain": "valid",
+      "expected": "consistent",
+      "purpose": "v010 ideal gas"
+    }
+  },
+  "version": 1
+}
