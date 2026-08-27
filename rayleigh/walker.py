@@ -263,6 +263,8 @@ class ConstraintWalker(ast.NodeVisitor):
                 chain=(
                     "both operands must have equal dimensions",
                 ),
+                column=getattr(node, "col_offset", None),
+                end_column=getattr(node, "end_col_offset", None),
             )
             return left
 
@@ -450,18 +452,21 @@ class ConstraintWalker(ast.NodeVisitor):
         message: str,
         kind: ConstraintKind = ConstraintKind.EQUALITY,
         chain: tuple[str, ...] | None = None,
+        column: int | None = None,
+        end_column: int | None = None,
     ) -> None:
         self.constraints.append(
             Constraint(
                 left=left,
                 right=right,
                 line=line,
+                column=column,
+                end_column=end_column,
                 kind=kind,
                 message=message,
                 chain=chain or (message,),
             )
         )
-
     @staticmethod
     def _numeric_value(
         node: ast.AST,

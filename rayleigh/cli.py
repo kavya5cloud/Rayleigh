@@ -67,7 +67,10 @@ def _dimension_to_json(dimension) -> list[str] | None:
 def _finding_to_json(finding) -> dict[str, object]:
     return {
         "kind": finding.kind,
+        "severity": finding.severity,
         "line": finding.line,
+        "column": finding.column,
+        "end_column": finding.end_column,
         "message": finding.message,
         "left": finding.left,
         "right": finding.right,

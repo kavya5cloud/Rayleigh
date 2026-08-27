@@ -16,6 +16,9 @@ class Finding:
     right: str | None = None
     chain: tuple[str, ...] = ()
     kind: str = "solver_contradiction"
+    column: int | None = None
+    end_column: int | None = None
+    severity: str = "error"
 
 
 @dataclass
@@ -274,11 +277,13 @@ def _find_operation_conflicts(
                         or (constraint.message,)
                     ),
                     kind="dimension_mismatch",
+                    column=constraint.column,
+                    end_column=constraint.end_column,
+                    severity="error",
                 )
             )
 
     return findings
-
 
 def _constraints_are_consistent(
     constraints: list[Constraint],
@@ -549,11 +554,14 @@ def _find_operation_conflicts(
                         constraint.chain
                         or (constraint.message,)
                     ),
+                    kind="dimension_mismatch",
+                    column=constraint.column,
+                    end_column=constraint.end_column,
+                    severity="error",
                 )
             )
 
     return findings
-
 
 def _infer_expression_dimension(
     expression,

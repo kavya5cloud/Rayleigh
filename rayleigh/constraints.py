@@ -18,6 +18,8 @@ class Constraint:
     left: DimensionExpr
     right: DimensionExpr
     line: int
+    column: int | None = None
+    end_column: int | None = None
     kind: ConstraintKind = ConstraintKind.EQUALITY
     message: str = ""
     chain: tuple[str, ...] = ()
