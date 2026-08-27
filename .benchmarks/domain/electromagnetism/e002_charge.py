@@ -1,3 +1,5 @@
+# EXPECTED: consistent
+
 current_a = 3
 time_s = 4
 

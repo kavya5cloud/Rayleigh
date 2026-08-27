@@ -1,3 +1,5 @@
+# EXPECTED: consistent
+
 force_n = 100
 area_m2 = 2
 

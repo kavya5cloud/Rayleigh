@@ -1,3 +1,5 @@
+# EXPECTED: consistent
+
 voltage_v = 24
 current_a = 2
 

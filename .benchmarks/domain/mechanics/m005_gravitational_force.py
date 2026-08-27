@@ -1,3 +1,5 @@
+# EXPECTED: consistent
+
 mass_1_kg = 5
 mass_2_kg = 10
 distance_m = 2

@@ -1,3 +1,5 @@
+# EXPECTED: consistent
+
 capacitance_f = 2
 voltage_v = 12
 

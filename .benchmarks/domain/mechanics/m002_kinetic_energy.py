@@ -1,3 +1,5 @@
+# EXPECTED: consistent
+
 mass_kg = 10
 velocity_mps = 20
 

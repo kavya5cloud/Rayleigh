@@ -1,3 +1,5 @@
+# EXPECTED: consistent
+
 spring_constant_n_m = 50
 displacement_m = 0.2
 

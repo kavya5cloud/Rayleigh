@@ -1,3 +1,5 @@
+# EXPECTED: consistent
+
 work_j = 500
 time_s = 10
 

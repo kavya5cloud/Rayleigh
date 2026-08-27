@@ -1,3 +1,5 @@
+# EXPECTED: consistent
+
 charge_c = 2
 velocity_mps = 10
 magnetic_field_t = 0.5

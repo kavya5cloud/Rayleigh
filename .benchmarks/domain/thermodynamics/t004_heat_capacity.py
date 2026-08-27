@@ -1,3 +1,5 @@
+# EXPECTED: consistent
+
 mass_kg = 2
 specific_heat_j_kg_k = 4186
 temperature_change_k = 10

@@ -1,3 +1,5 @@
+# EXPECTED: consistent
+
 radius_m = 5
 velocity_mps = 20
 

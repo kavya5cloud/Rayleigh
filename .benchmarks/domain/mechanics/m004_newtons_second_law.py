@@ -1,3 +1,5 @@
+# EXPECTED: consistent
+
 mass_kg = 12
 acceleration_mps2 = 3
 

@@ -1,3 +1,5 @@
+# EXPECTED: consistent
+
 energy_j = 60
 charge_c = 3
 

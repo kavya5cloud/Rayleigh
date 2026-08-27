@@ -1,3 +1,5 @@
+# EXPECTED: consistent
+
 charge_c = 2
 electric_field_n_c = 10
 
