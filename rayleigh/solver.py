@@ -219,6 +219,31 @@ def _find_suspect_constraints(
 
     return findings
 
+def _explain_dimension_mismatch(
+    left: Dimension,
+    right: Dimension,
+) -> str:
+    """
+    Explain exactly which SI base-dimension exponents differ.
+    """
+
+    mismatches: list[str] = []
+
+    for name, left_exp, right_exp in zip(
+        BASE_DIMENSIONS,
+        left.exponents,
+        right.exponents,
+    ):
+        if left_exp != right_exp:
+            mismatches.append(
+                f"{name} exponent: "
+                f"{left_exp} != {right_exp}"
+            )
+
+    if not mismatches:
+        return ""
+
+    return "Mismatch: " + "; ".join(mismatches)
 def _find_operation_conflicts(
     constraints: list[Constraint],
 ) -> list[Finding]:
@@ -275,6 +300,11 @@ def _find_operation_conflicts(
                     chain=(
                         constraint.chain
                         or (constraint.message,)
+                    )
+                    + (
+                        (explanation,)
+                        if explanation
+                            else ()
                     ),
                     kind="dimension_mismatch",
                     column=constraint.column,
@@ -496,7 +526,31 @@ def _rref_solve(
 
     return solution, []
 
+def _explain_dimension_mismatch(
+    left: Dimension,
+    right: Dimension,
+) -> str:
+    """
+    Explain which SI base-dimension exponents differ.
+    """
 
+    mismatches: list[str] = []
+
+    for name, left_exp, right_exp in zip(
+        BASE_DIMENSIONS,
+        left.exponents,
+        right.exponents,
+    ):
+        if left_exp != right_exp:
+            mismatches.append(
+                f"{name} exponent: "
+                f"{left_exp} != {right_exp}"
+            )
+
+    if not mismatches:
+        return ""
+
+    return "Mismatch: " + "; ".join(mismatches)
 def _find_operation_conflicts(
     constraints: list[Constraint],
 ) -> list[Finding]:
@@ -536,30 +590,42 @@ def _find_operation_conflicts(
         )
 
         if (
-            left_dimension is not None
-            and right_dimension is not None
-            and left_dimension != right_dimension
+            left_dimension is None
+            or right_dimension is None
+            or left_dimension == right_dimension
         ):
-            findings.append(
-                Finding(
-                    status="contradiction",
-                    line=constraint.line,
-                    message=(
-                        f"{constraint.message} requires "
-                        "matching dimensions"
-                    ),
-                    left=left_dimension.format(),
-                    right=right_dimension.format(),
-                    chain=(
-                        constraint.chain
-                        or (constraint.message,)
-                    ),
-                    kind="dimension_mismatch",
-                    column=constraint.column,
-                    end_column=constraint.end_column,
-                    severity="error",
-                )
+            continue
+
+        explanation = _explain_dimension_mismatch(
+            left_dimension,
+            right_dimension,
+        )
+
+        chain = list(
+            constraint.chain
+            or (constraint.message,)
+        )
+
+        if explanation:
+            chain.append(explanation)
+
+        findings.append(
+            Finding(
+                status="contradiction",
+                line=constraint.line,
+                message=(
+                    f"{constraint.message} requires "
+                    "matching dimensions"
+                ),
+                left=left_dimension.format(),
+                right=right_dimension.format(),
+                chain=tuple(chain),
+                kind="dimension_mismatch",
+                column=constraint.column,
+                end_column=constraint.end_column,
+                severity="error",
             )
+        )
 
     return findings
 
