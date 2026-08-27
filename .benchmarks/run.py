@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import json
 import re
 import subprocess
@@ -40,7 +41,6 @@ class BenchmarkResult:
 
 
 def parse_expected_marker(path: Path) -> str | None:
-    """Read an explicit '# EXPECTED: <status>' marker."""
     try:
         source = path.read_text(encoding="utf-8")
     except OSError:
@@ -65,7 +65,6 @@ def parse_expected_marker(path: Path) -> str | None:
 
 
 def discover_cases() -> list[Path]:
-    """Discover all benchmark Python files."""
     cases: list[Path] = []
 
     for category in (
@@ -76,16 +75,12 @@ def discover_cases() -> list[Path]:
         directory = ROOT / category
 
         if directory.exists():
-            cases.extend(
-                directory.glob("*.py")
-            )
+            cases.extend(directory.glob("*.py"))
 
     domain = ROOT / "domain"
 
     if domain.exists():
-        cases.extend(
-            domain.rglob("*.py")
-        )
+        cases.extend(domain.rglob("*.py"))
 
     return sorted(cases)
 
@@ -93,7 +88,6 @@ def discover_cases() -> list[Path]:
 def infer_expected_from_path(
     path: Path,
 ) -> str | None:
-    """Infer expected status for legacy benchmark categories."""
     relative = path.relative_to(ROOT)
     parts = relative.parts
 
@@ -104,7 +98,6 @@ def infer_expected_from_path(
 
 
 def infer_domain_from_path(path: Path) -> str:
-    """Infer a readable domain name from a benchmark path."""
     relative = path.relative_to(ROOT)
     parts = relative.parts
 
@@ -114,17 +107,14 @@ def infer_domain_from_path(path: Path) -> str:
     if parts[0] == "domain" and len(parts) >= 2:
         return parts[1]
 
-    return "core"
+    return parts[0]
 
 
 def build_default_manifest() -> dict:
-    """Build a manifest from the current benchmark tree."""
     cases: dict[str, dict[str, str]] = {}
 
     for path in discover_cases():
-        relative = str(
-            path.relative_to(ROOT)
-        )
+        relative = str(path.relative_to(ROOT))
 
         expected = infer_expected_from_path(path)
 
@@ -157,7 +147,6 @@ def build_default_manifest() -> dict:
 
 
 def load_manifest() -> dict:
-    """Load the benchmark manifest, generating it if needed."""
     if not MANIFEST.exists():
         manifest = build_default_manifest()
 
@@ -217,7 +206,6 @@ def load_manifest() -> dict:
 
 
 def validate_manifest(manifest: dict) -> None:
-    """Ensure manifest and benchmark tree are synchronized."""
     cases = manifest["cases"]
 
     discovered = {
@@ -255,8 +243,7 @@ def validate_manifest(manifest: dict) -> None:
             )
 
         missing_metadata = (
-            REQUIRED_METADATA
-            - set(metadata)
+            REQUIRED_METADATA - set(metadata)
         )
 
         if missing_metadata:
@@ -289,7 +276,6 @@ def validate_manifest(manifest: dict) -> None:
 
 
 def detect_actual(output: str) -> str:
-    """Convert Rayleigh CLI output into a status."""
     if "✓ CONSISTENT" in output:
         return "consistent"
 
@@ -307,10 +293,13 @@ def run_case(
     expected: str,
     domain: str,
 ) -> BenchmarkResult:
-    """Run one benchmark case."""
     result = subprocess.run(
         [
-            "rayleigh",
+            # Use the same Python interpreter that launched
+            # the benchmark runner.
+            __import__("sys").executable,
+            "-m",
+            "rayleigh.cli",
             "check",
             str(path),
         ],
@@ -330,17 +319,61 @@ def run_case(
     )
 
 
+def build_json_summary(
+    results: list[BenchmarkResult],
+) -> dict:
+    passed = sum(
+        result.passed
+        for result in results
+    )
+
+    total = len(results)
+
+    by_domain: dict[str, dict[str, int]] = {}
+
+    for result in results:
+        stats = by_domain.setdefault(
+            result.domain,
+            {
+                "passed": 0,
+                "total": 0,
+            },
+        )
+
+        stats["total"] += 1
+
+        if result.passed:
+            stats["passed"] += 1
+
+    status_distribution = {
+        "consistent": 0,
+        "contradiction": 0,
+        "unknown": 0,
+        "error": 0,
+    }
+
+    for result in results:
+        status_distribution[result.actual] += 1
+
+    return {
+        "passed": passed,
+        "total": total,
+        "accuracy": (
+            passed / total * 100
+            if total
+            else 0.0
+        ),
+        "domains": by_domain,
+        "status_distribution": status_distribution,
+    }
+
+
 def print_summary(
     results: list[BenchmarkResult],
 ) -> None:
-    """Print domain and status summaries."""
     print()
     print("Benchmark Summary")
     print("-" * 72)
-
-    # ------------------------------------------------------------
-    # Results by domain.
-    # ------------------------------------------------------------
 
     by_domain: dict[
         str,
@@ -352,10 +385,12 @@ def print_summary(
 
     for domain in sorted(by_domain):
         domain_results = by_domain[domain]
+
         passed = sum(
             result.passed
             for result in domain_results
         )
+
         total = len(domain_results)
 
         percentage = (
@@ -370,18 +405,14 @@ def print_summary(
             f"({percentage:5.1f}%)"
         )
 
-    # ------------------------------------------------------------
-    # Results by actual status.
-    # ------------------------------------------------------------
-
-    status_counts = Counter(
-        result.actual
-        for result in results
-    )
-
     print()
     print("Status Distribution")
     print("-" * 72)
+
+    counts = Counter(
+        result.actual
+        for result in results
+    )
 
     for status in (
         "consistent",
@@ -391,11 +422,23 @@ def print_summary(
     ):
         print(
             f"{status.title():20} "
-            f"{status_counts.get(status, 0)}"
+            f"{counts.get(status, 0)}"
         )
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        description="Run the Rayleigh benchmark suite."
+    )
+
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        help="emit machine-readable JSON",
+    )
+
+    args = parser.parse_args(argv)
+
     manifest = load_manifest()
     validate_manifest(manifest)
 
@@ -412,6 +455,24 @@ def main() -> None:
                 metadata["expected"],
                 metadata["domain"],
             )
+        )
+
+    if args.json:
+        print(
+            json.dumps(
+                build_json_summary(results),
+                indent=2,
+                sort_keys=True,
+            )
+        )
+
+        return (
+            0
+            if all(
+                result.passed
+                for result in results
+            )
+            else 1
         )
 
     print("Rayleigh Benchmark")
@@ -435,25 +496,22 @@ def main() -> None:
         result.passed
         for result in results
     )
+
     total = len(results)
 
     print("=" * 72)
     print(f"Passed: {passed}/{total}")
 
     if total:
-        accuracy = (
-            passed / total * 100
-        )
-
+        accuracy = passed / total * 100
         print(
             f"Accuracy: {accuracy:.1f}%"
         )
 
     print_summary(results)
 
-    if passed != total:
-        raise SystemExit(1)
+    return 0 if passed == total else 1
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
