@@ -6,6 +6,7 @@ from .dimension import Dimension
 
 
 _ZERO = Dimension.zero()
+
 _M = Dimension.basis(0)
 _L = Dimension.basis(1)
 _T = Dimension.basis(2)
@@ -45,6 +46,7 @@ PATTERNS: list[tuple[re.Pattern[str], Dimension, str]] = [
         _L * 3,
         "volume name",
     ),
+
     # Displacement
     (
         re.compile(
@@ -65,36 +67,6 @@ PATTERNS: list[tuple[re.Pattern[str], Dimension, str]] = [
         "spring-constant name",
     ),
 
-        # Pressure
-    (
-        re.compile(
-            r"^pressure(?:_\d+)?(?:_pa|_kpa|_bar)?$",
-            re.I,
-        ),
-        _M - _L - (_T * 2),
-        "pressure name",
-    ),
-
-    # Specific heat capacity
-    (
-        re.compile(
-            r"^specific_heat(?:_\d+)?(?:_j_kg_k)?$",
-            re.I,
-        ),
-        (_L * 2) - (_T * 2) - _TH,
-        "specific-heat name",
-    ),
-
-    # Temperature change
-    (
-        re.compile(
-            r"^(?:temperature_change|delta_t)(?:_\d+)?(?:_k)?$",
-            re.I,
-        ),
-        _TH,
-        "temperature-change name",
-    ),
-    
     # Length
     (
         re.compile(
@@ -138,6 +110,46 @@ PATTERNS: list[tuple[re.Pattern[str], Dimension, str]] = [
         "acceleration name",
     ),
 
+    # Pressure
+    (
+        re.compile(
+            r"^pressure(?:_\d+)?(?:_pa|_kpa|_bar)?$",
+            re.I,
+        ),
+        _M - _L - (_T * 2),
+        "pressure name",
+    ),
+
+    # Voltage
+    (
+        re.compile(
+            r"^voltage(?:_\d+)?(?:_v|_kv)?$",
+            re.I,
+        ),
+        _M + (_L * 2) - (_T * 3) - _I,
+        "voltage name",
+    ),
+
+    # Electric charge
+    (
+        re.compile(
+            r"^charge(?:_\d+)?(?:_c|_coulomb|_coulombs)?$",
+            re.I,
+        ),
+        _I + _T,
+        "charge name",
+    ),
+
+    # Electric field
+    (
+        re.compile(
+            r"^electric_field(?:_\d+)?(?:_n_c|_v_m)?$",
+            re.I,
+        ),
+        _M + _L - (_T * 3) - _I,
+        "electric-field name",
+    ),
+
     # Force
     (
         re.compile(
@@ -151,8 +163,7 @@ PATTERNS: list[tuple[re.Pattern[str], Dimension, str]] = [
     # Energy / Work
     (
         re.compile(
-            r"^(?:energy|work)"
-            r"(?:_\d+)?(?:_j)?$",
+            r"^(?:energy|work)(?:_\d+)?(?:_j)?$",
             re.I,
         ),
         _M + (_L * 2) - (_T * 2),
@@ -169,17 +180,7 @@ PATTERNS: list[tuple[re.Pattern[str], Dimension, str]] = [
         "power name",
     ),
 
-    # Dimensionless angles
-    (
-        re.compile(
-            r"^(?:angle|theta|phi|radians?)(?:_\d+)?$",
-            re.I,
-        ),
-        _ZERO,
-        "angle name",
-    ),
-
-    # Electric current
+    # Current
     (
         re.compile(
             r"^(?:current|amps?|amperage)"
@@ -201,6 +202,27 @@ PATTERNS: list[tuple[re.Pattern[str], Dimension, str]] = [
         "temperature name",
     ),
 
+    # Temperature change
+    (
+        re.compile(
+            r"^(?:temperature_change|delta_t)"
+            r"(?:_\d+)?(?:_k)?$",
+            re.I,
+        ),
+        _TH,
+        "temperature-change name",
+    ),
+
+    # Specific heat capacity
+    (
+        re.compile(
+            r"^specific_heat(?:_\d+)?(?:_j_kg_k)?$",
+            re.I,
+        ),
+        (_L * 2) - (_T * 2) - _TH,
+        "specific-heat name",
+    ),
+
     # Amount of substance
     (
         re.compile(
@@ -209,6 +231,25 @@ PATTERNS: list[tuple[re.Pattern[str], Dimension, str]] = [
         ),
         _N,
         "amount name",
+    ),
+
+        # Capacitance
+    (
+        re.compile(
+            r"^capacitance(?:_\d+)?(?:_f)?$",
+            re.I,
+        ),
+        (_I * 2) + (_T * 4) - _M - (_L * 2),
+        "capacitance name",
+    ),
+    # Magnetic field
+    (
+        re.compile(
+            r"^magnetic_field(?:_\d+)?(?:_t|_tesla)?$",
+            re.I,
+        ),
+        _M - (_T * 2) - _I,
+        "magnetic-field name",
     ),
 
     # Luminous intensity

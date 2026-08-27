@@ -108,6 +108,8 @@ class ConstraintWalker(ast.NodeVisitor):
             lhs = self._name_expr(name)
             prior = infer_prior(name)
 
+            # A plain numeric literal gets its dimension from its prior.
+            # Do not create an equality against dimensionless 1.
             if not (
                 prior
                 and self._is_plain_numeric_value(value)
@@ -520,27 +522,3 @@ def collect_constraints(
     )
 
     return ConstraintWalker().analyze(tree)
-
-
-def test_nested_assignment_provenance_is_preserved() -> None:
-    result = collect_constraints(
-        "distance = 100\n"
-        "time = 5\n"
-        "speed = distance / time\n"
-        "acceleration = speed / time\n"
-    )
-
-    acceleration_constraints = [
-        c
-        for c in result.constraints
-        if c.message == "assignment to acceleration"
-    ]
-
-    assert acceleration_constraints
-
-    constraint = acceleration_constraints[0]
-
-    assert any(
-        "acceleration = speed / time" in item
-        for item in constraint.chain
-    )
