@@ -348,3 +348,43 @@ def build_provenance(
             provenance.append(node)
 
     return provenance
+
+def render_diagnostics(
+    result: SolveResult,
+    filename: str,
+) -> str:
+    """
+    Render concise editor-friendly diagnostics.
+
+    Prefer the primary dimensional mismatch and suppress
+    downstream solver consequences.
+    """
+
+    if not result.contradictions:
+        return ""
+
+    primary = next(
+        (
+            finding
+            for finding in result.contradictions
+            if finding.kind == "dimension_mismatch"
+        ),
+        result.contradictions[0],
+    )
+
+    line = primary.line or 1
+
+    column = (
+        primary.column + 1
+        if primary.column is not None
+        else 1
+    )
+
+    code = primary.kind or "solver_contradiction"
+    severity = primary.severity or "error"
+
+    return (
+        f"{filename}:{line}:{column}: "
+        f"{severity}[{code}]: "
+        f"{primary.message}"
+    )

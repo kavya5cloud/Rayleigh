@@ -1,5 +1,10 @@
 from __future__ import annotations
-
+from .report import (
+    build_provenance,
+    render_constraints,
+    render_diagnostics,
+    render_result,
+)
 import argparse
 import json
 import sys
@@ -37,6 +42,11 @@ def build_parser() -> argparse.ArgumentParser:
         "file",
         type=Path,
     )
+    check.add_argument(
+    "--diagnostic",
+    action="store_true",
+    help="emit editor-friendly diagnostics",
+)
 
     check.add_argument(
         "--constraints",
@@ -79,6 +89,7 @@ def _finding_to_json(finding) -> dict[str, object]:
 
 
 def main(argv: list[str] | None = None) -> int:
+    
     args = build_parser().parse_args(argv)
 
     if args.command != "check":
@@ -102,6 +113,20 @@ def main(argv: list[str] | None = None) -> int:
         return 2
 
     result = solve(walk.constraints)
+    if args.diagnostic:
+        output = render_diagnostics(
+            result,
+            str(args.file),
+        )
+
+        if output:
+            print(output)
+
+        return {
+            "consistent": 0,
+            "contradiction": 1,
+            "unknown": 0,
+        }[result.status]
 
     if args.as_json:
         contradictions = []
